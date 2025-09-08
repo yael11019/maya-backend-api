@@ -1,0 +1,24 @@
+{
+  "name": "maya-backend",
+  "description": "Maya Pets Backend - Laravel PHP Application",
+  "buildpacks": [
+    {
+      "url": "https://github.com/heroku/heroku-buildpack-php"
+    }
+  ],
+  "stack": "heroku-22",
+  "env": {
+    "APP_ENV": {
+      "value": "production"
+    },
+    "APP_DEBUG": {
+      "value": "false"
+    },
+    "DB_CONNECTION": {
+      "value": "sqlite"
+    }
+  },
+  "scripts": {
+    "postdeploy": "php artisan migrate --force"
+  }
+}
