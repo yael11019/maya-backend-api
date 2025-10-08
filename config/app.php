@@ -1,4 +1,5 @@
 <?php
+use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 
 return [
 
@@ -121,6 +122,11 @@ return [
     'maintenance' => [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
+    ],
+
+    'aliases' => [
+        'JWTAuth' => PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth::class,
+        'JWTFactory' => PHPOpenSourceSaver\JWTAuth\Facades\JWTFactory::class,
     ],
 
 ];

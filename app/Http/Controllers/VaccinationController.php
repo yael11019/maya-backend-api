@@ -79,7 +79,7 @@ class VaccinationController extends Controller
     {
         try {
             // Log para debug
-            \Log::info('Store vaccination request:', [
+            Log::info('Store vaccination request:', [
             'has_image' => $request->hasFile('vaccineImage'),
             'request_data' => $request->except(['vaccineImage']),
             'content_type' => $request->header('Content-Type'),
@@ -109,7 +109,7 @@ class VaccinationController extends Controller
         if ($request->hasFile('vaccineImage') && $request->file('vaccineImage')->isValid()) {
             $image = $request->file('vaccineImage');
             
-            \Log::info('Processing image:', [
+            Log::info('Processing image:', [
                 'original_name' => $image->getClientOriginalName(),
                 'mime_type' => $image->getMimeType(),
                 'size' => $image->getSize()
@@ -124,7 +124,7 @@ class VaccinationController extends Controller
             $imageName = 'vaccination_' . time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
             $imagePath = $image->storeAs('vaccinations', $imageName, 'public');
             
-            \Log::info('Image saved:', ['path' => $imagePath]);
+            Log::info('Image saved:', ['path' => $imagePath]);
         }
 
         // Crear la vacuna
@@ -144,7 +144,7 @@ class VaccinationController extends Controller
 
         $vaccination->load('pet');
 
-        \Log::info('Vaccination created successfully:', [
+    Log::info('Vaccination created successfully:', [
             'id' => $vaccination->vaccinationId,
             'image' => $vaccination->vaccineImage
         ]);
@@ -155,13 +155,13 @@ class VaccinationController extends Controller
         ], 201);
 
     } catch (ValidationException $e) {
-        \Log::error('Validation error:', $e->errors());
+    Log::error('Validation error:', $e->errors());
         return response()->json([
             'message' => 'Error de validación',
             'errors' => $e->errors()
         ], 422);
     } catch (\Exception $e) {
-        \Log::error('Store error:', [
+    Log::error('Store error:', [
             'message' => $e->getMessage(),
             'trace' => $e->getTraceAsString()
         ]);
@@ -200,7 +200,7 @@ public function update(Request $request, Vaccination $vaccination): JsonResponse
             'notes' => 'nullable|string',
             'vaccineStatus' => 'sometimes|in:completed,pending',
             'vaccineType' => 'sometimes|in:vaccine,desparasitante',
-            'vaccineImage' => 'nullable|file|image|mimes:jpeg,png,jpg,gif,webp|max:5120'
+            'vaccineImage' => 'sometimes|file|image|mimes:jpeg,png,jpg,gif,webp|max:5120'
         ]);
 
         // Manejar la imagen si se envió

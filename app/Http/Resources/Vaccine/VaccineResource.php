@@ -22,6 +22,14 @@ class VaccineResource extends JsonResource
             'vaccine_image' => $this->vaccineImage ? asset('storage/' . $this->vaccineImage) : null, // Cambiar campo
             'pet_id' => $this->petId,
             'veterinarian_id' => $this->veterinarianId,
+            'veterinarian' => $this->whenLoaded('veterinarian', function () {
+                return [
+                    'id' => $this->veterinarian->id,
+                    'name' => $this->veterinarian->name,
+                    'clinic_name' => $this->veterinarian->clinic_name,
+                    'contact_info' => $this->veterinarian->contact_info,
+                ];
+            }),
             'pet' => $this->whenLoaded('pet', function () {
                 return [
                     'id' => $this->pet->id,

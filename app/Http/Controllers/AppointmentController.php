@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Models\Pet;
+use App\Models\Veterinarian;
 use App\Http\Requests\StoreAppointmentRequest;
 use App\Http\Requests\UpdateAppointmentRequest;
 use App\Http\Resources\AppointmentResource;
@@ -74,6 +75,24 @@ class AppointmentController extends Controller
     {
         $user = Auth::user();
         $validated = $request->validated();
+        // Permitir camelCase desde el frontend
+        if (isset($validated['veterinarianId']) && !isset($validated['veterinarian_id'])) {
+            $validated['veterinarian_id'] = $validated['veterinarianId'];
+        }
+
+        // Si viene veterinarian_id, busca el veterinario y agrega nombre y clínica
+        if (isset($validated['veterinarian_id'])) {
+            $vet = Veterinarian::find($validated['veterinarian_id']);
+            if ($vet) {
+                $validated['veterinarian_name'] = $vet->veterinarianName;
+                $validated['clinic_name'] = $vet->clinicName;
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Veterinarian not found'
+                ], 422);
+            }
+        }
 
         // Verify the pet belongs to the authenticated user
         $pet = Pet::where('id', $validated['pet_id'])
@@ -131,7 +150,6 @@ class AppointmentController extends Controller
     public function update(UpdateAppointmentRequest $request, string $id): JsonResponse
     {
         $user = Auth::user();
-        
         $appointment = Appointment::where('id', $id)
                                  ->where('user_id', $user->id)
                                  ->first();
@@ -144,6 +162,15 @@ class AppointmentController extends Controller
         }
 
         $validated = $request->validated();
+
+        // Si viene veterinarian_id, busca el veterinario y agrega nombre y clínica
+        if (isset($validated['veterinarian_id'])) {
+            $vet = Veterinarian::find($validated['veterinarian_id']);
+            if ($vet) {
+                $validated['veterinarian_name'] = $vet->veterinarianName;
+                $validated['clinic_name'] = $vet->clinicName;
+            }
+        }
 
         // If pet_id is being updated, verify it belongs to the user
         if (isset($validated['pet_id'])) {
@@ -175,20 +202,16 @@ class AppointmentController extends Controller
     public function destroy(string $id): JsonResponse
     {
         $user = Auth::user();
-        
         $appointment = Appointment::where('id', $id)
                                  ->where('user_id', $user->id)
                                  ->first();
-
         if (!$appointment) {
             return response()->json([
                 'success' => false,
                 'message' => 'Appointment not found'
             ], 404);
         }
-
         $appointment->delete();
-
         return response()->json([
             'success' => true,
             'message' => 'Appointment deleted successfully'
@@ -201,18 +224,15 @@ class AppointmentController extends Controller
     public function markAsCompleted(Request $request, string $id): JsonResponse
     {
         $user = Auth::user();
-        
         $appointment = Appointment::where('id', $id)
                                  ->where('user_id', $user->id)
                                  ->first();
-
         if (!$appointment) {
             return response()->json([
                 'success' => false,
                 'message' => 'Appointment not found'
             ], 404);
         }
-
         $validated = $request->validate([
             'diagnosis' => 'nullable|string',
             'treatment' => 'nullable|string',
@@ -220,10 +240,8 @@ class AppointmentController extends Controller
             'cost' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string'
         ]);
-
         $appointment->markAsCompleted($validated);
         $appointment->load(['pet', 'veterinarian']);
-
         return response()->json([
             'success' => true,
             'message' => 'Appointment marked as completed',
@@ -237,21 +255,17 @@ class AppointmentController extends Controller
     public function markAsCancelled(string $id): JsonResponse
     {
         $user = Auth::user();
-        
         $appointment = Appointment::where('id', $id)
                                  ->where('user_id', $user->id)
                                  ->first();
-
         if (!$appointment) {
             return response()->json([
                 'success' => false,
                 'message' => 'Appointment not found'
             ], 404);
         }
-
         $appointment->markAsCancelled();
         $appointment->load(['pet', 'veterinarian']);
-
         return response()->json([
             'success' => true,
             'message' => 'Appointment cancelled',

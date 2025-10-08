@@ -24,12 +24,15 @@ class StoreAppointmentRequest extends FormRequest
     {
         return [
             'pet_id' => 'required|exists:pets,id',
+            // Permitir ambas variantes de veterinarian_id
             'veterinarian_id' => 'nullable|exists:veterinarians,veterinarianId',
+            'veterinarianId' => 'nullable|exists:veterinarians,veterinarianId',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'appointment_date' => 'required|date|after:now',
-            'veterinarian_name' => 'required|string|max:255',
-            'clinic_name' => 'required|string|max:255',
+            // required_without para ambas variantes
+            'veterinarian_name' => 'required_without_all:veterinarian_id,veterinarianId|string|max:255',
+            'clinic_name' => 'required_without_all:veterinarian_id,veterinarianId|string|max:255',
             'clinic_address' => 'nullable|string|max:500',
             'phone' => 'nullable|string|max:20',
             'urgency' => ['nullable', Rule::in(['low', 'medium', 'high'])],
@@ -50,8 +53,8 @@ class StoreAppointmentRequest extends FormRequest
             'title.required' => 'Please provide a title for the appointment.',
             'appointment_date.required' => 'Please select an appointment date.',
             'appointment_date.after' => 'The appointment date must be in the future.',
-            'veterinarian_name.required' => 'Please provide the veterinarian\'s name.',
-            'clinic_name.required' => 'Please provide the clinic name.',
+            'veterinarian_name.required_without_all' => 'Please provide the veterinarian\'s name.',
+            'clinic_name.required_without_all' => 'Please provide the clinic name.',
             'urgency.in' => 'Please select a valid urgency level.',
             'cost.numeric' => 'The cost must be a valid number.',
             'cost.min' => 'The cost cannot be negative.'

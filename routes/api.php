@@ -51,6 +51,11 @@ Route::group([
     
     // Veterinarians routes
     Route::resource('veterinarians', VeterinarianController::class);
+
+    // Notifications
+        Route::get('notifications', [\App\Http\Controllers\NotificationController::class, 'index']);
+        Route::post('notifications', [\App\Http\Controllers\NotificationController::class, 'store']);
+        Route::get('notifications/{id}', [\App\Http\Controllers\NotificationController::class, 'show']);
     
     // Social Network routes
     Route::prefix('social')->group(function () {
@@ -77,4 +82,6 @@ Route::group([
         Route::get('pets/{pet}/profile', [SocialNetworkController::class, 'getPetProfile']);
     });
 });
+// Ruta pública para ver el perfil social de una mascota
+Route::get('pets/{pet}/public-profile', [SocialNetworkController::class, 'publicPetProfile']);
  

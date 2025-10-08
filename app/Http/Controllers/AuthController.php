@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
   
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use Validator;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Validator;
   
   
 class AuthController extends Controller
@@ -35,8 +35,10 @@ class AuthController extends Controller
         $user->phone = request()->phone;
         $user->password = bcrypt(request()->password);
         $user->save();
-  
-        return response()->json($user, 201);
+
+        $token = auth()->login($user);
+
+        return $this->respondWithToken($token);
     }
   
   

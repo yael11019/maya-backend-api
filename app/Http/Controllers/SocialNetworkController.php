@@ -18,6 +18,68 @@ use Illuminate\Http\JsonResponse;
 
 class SocialNetworkController extends Controller
 {
+    /**
+     * Public pet profile for social network (no auth required)
+     */
+    public function publicPetProfile($petId): JsonResponse
+    {
+        try {
+            $userId = Auth::id();
+            $pet = Pet::with('user')->findOrFail($petId);
+            $followers = $pet->followersCount();
+            $posts = SocialPost::where('pet_id', $petId)
+                ->where('is_active', true)
+                ->with(['comments.pet'])
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($post) use ($userId) {
+                    return [
+                        'id' => $post->id,
+                        'type' => $post->media_type,
+                        'media_url' => asset('storage/' . $post->media_url),
+                        'caption' => $post->caption,
+                        'likes_count' => $post->likes()->count(),
+                        'comments_count' => $post->comments()->count(),
+                        'is_liked' => $userId ? $post->isLikedBy($userId) : false,
+                        'created_at' => $post->created_at->toISOString(),
+                        'comments' => $post->comments->take(3)->map(function ($comment) {
+                            return [
+                                'id' => $comment->id,
+                                'pet_name' => $comment->pet->name,
+                                'pet_avatar' => $comment->pet->avatar ? asset('storage/' . $comment->pet->avatar) : null,
+                                'text' => $comment->comment,
+                                'created_at' => $comment->created_at->toISOString(),
+                            ];
+                        }),
+                    ];
+                });
+            $profile = [
+                'id' => $pet->id,
+                'name' => $pet->name,
+                'breed' => $pet->breed,
+                'age' => $pet->age,
+                'weight' => $pet->weight,
+                'description' => $pet->description,
+                'avatar' => $pet->avatar ? asset('storage/' . $pet->avatar) : null,
+                'owner' => [
+                    'id' => $pet->user->id,
+                    'name' => $pet->user->name,
+                ],
+                'followers' => $followers,
+                'posts' => $posts,
+                'created_at' => $pet->created_at->toISOString(),
+            ];
+            return response()->json([
+                'success' => true,
+                'profile' => $profile,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching public pet profile: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
     // No necesitamos constructor con middleware aquí
     // El middleware se aplicará en las rutas
 
@@ -55,6 +117,7 @@ class SocialNetworkController extends Controller
                                 'pet_avatar' => $comment->pet->avatar ? asset('storage/' . $comment->pet->avatar) : null,
                                 'text' => $comment->comment,
                                 'created_at' => $comment->created_at->toISOString(),
+                                'pet_id' => $comment->pet->id, // Agregado para identificar la mascota que hizo el comentario
                             ];
                         }),
                     ];
@@ -167,9 +230,10 @@ class SocialNetworkController extends Controller
 
             // Handle file upload
             $file = $request->file('file');
-            $timestamp = time();
-            $fileName = 'social_posts/' . $timestamp . '_' . $file->getClientOriginalName();
-            $filePath = $file->storeAs('social_posts', $timestamp . '_' . $file->getClientOriginalName(), 'public');
+            $originalName = $file->getClientOriginalName();
+            $safeName = preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $originalName);
+            $fileName = 'social_posts/' . $safeName;
+            $filePath = $file->storeAs('social_posts', $safeName, 'public');
 
             // Determine media type
             $mimeType = $file->getMimeType();
@@ -246,6 +310,16 @@ class SocialNetworkController extends Controller
                 ]);
                 $post->increment('likes_count');
                 $isLiked = true;
+                // Notificación de nuevo like
+                $pet = Pet::where('user_id', $userId)->first();
+                \App\Models\Notification::create([
+                    'actor_pet_id' => $pet ? $pet->id : null,
+                    'target_pet_id' => $post->pet_id,
+                    'post_id' => $postId,
+                    'type' => 'like',
+                    'user_id' => $userId,
+                    'message' => 'Tu post recibió un nuevo like',
+                ]);
             }
 
             return response()->json([
@@ -287,6 +361,16 @@ class SocialNetworkController extends Controller
 
             $post->increment('comments_count');
             $comment->load('pet');
+
+            // Notificación de nuevo comentario
+            \App\Models\Notification::create([
+                'actor_pet_id' => $request->pet_id, // quien comenta
+                'target_pet_id' => $post->pet_id, // dueño del post
+                'post_id' => $postId,
+                'type' => 'comment',
+                'user_id' => Auth::id(),
+                'message' => 'Nuevo comentario en tu post',
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -339,6 +423,15 @@ class SocialNetworkController extends Controller
                     'follower_user_id' => $userId,
                 ]);
                 $isFollowing = true;
+                // Notificación de nuevo seguidor
+                $actorPet = Pet::where('user_id', $userId)->first();
+                \App\Models\Notification::create([
+                    'actor_pet_id' => $actorPet ? $actorPet->id : null,
+                    'target_pet_id' => $petId,
+                    'type' => 'follow',
+                    'user_id' => $userId,
+                    'message' => 'Tu mascota tiene un nuevo seguidor',
+                ]);
             }
 
             $followersCount = $pet->followersCount();
@@ -393,7 +486,6 @@ class SocialNetworkController extends Controller
                                   'is_following' => $pet->isFollowedBy($userId),
                               ];
                           });
-                
                 $results = $results->merge($pets);
             }
 
@@ -412,10 +504,9 @@ class SocialNetworkController extends Controller
                                    'avatar' => null, // Add avatar field to users table if needed
                                    'type' => 'user',
                                    'followers_count' => 0, // Implement user followers if needed
-                                   'is_following' => false,
+                                   'is_following' => false
                                ];
                            });
-                
                 $results = $results->merge($users);
             }
 
@@ -457,13 +548,12 @@ class SocialNetworkController extends Controller
                                        'avatar' => $pet->avatar ? asset('storage/' . $pet->avatar) : null,
                                        'type' => 'pet',
                                        'followers_count' => $pet->followersCount(),
-                                       'is_following' => false,
+                                       'is_following' => $pet->isFollowedBy($userId),
                                    ];
                                });
-
             return response()->json([
                 'success' => true,
-                'suggestions' => $suggestedPets,
+                'suggested_pets' => $suggestedPets,
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -579,43 +669,6 @@ class SocialNetworkController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error updating post: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Delete a post
-     */
-    public function deletePost(SocialPost $post): JsonResponse
-    {
-        try {
-            // Verify that the post belongs to the authenticated user
-            if ($post->user_id !== Auth::id()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You can only delete your own posts',
-                ], 403);
-            }
-
-            // Delete the media file if it exists
-            if ($post->media_url) {
-                $filePath = storage_path('app/public/' . $post->media_url);
-                if (file_exists($filePath)) {
-                    unlink($filePath);
-                }
-            }
-
-            // Delete the post
-            $post->delete();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Post deleted successfully',
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error deleting post: ' . $e->getMessage(),
             ], 500);
         }
     }
