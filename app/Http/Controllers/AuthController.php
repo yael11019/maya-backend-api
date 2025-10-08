@@ -32,7 +32,6 @@ class AuthController extends Controller
         $user->name = request()->name;
         $user->email = request()->email;
         $user->surname = request()->surname;
-        $user->phone = request()->phone;
         $user->password = bcrypt(request()->password);
         $user->save();
 
@@ -71,7 +70,6 @@ class AuthController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'surname' => $user->surname,
-            'phone' => $user->phone,
         ]);
     }
   
